@@ -3,6 +3,7 @@ import StartScreen from './components/StartScreen';
 import QuestionScreen from './components/QuestionScreen';
 import ResultScreen from './components/ResultScreen';
 import { questions } from './data/questions';
+import { generateProfiles } from './utils/profileGenerator';
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState('start');
@@ -18,32 +19,26 @@ function App() {
     setCurrentScreen('question');
   };
 
-  const finishQuestions = async (collectedAnswers) => {
+  const finishQuestions = (collectedAnswers) => {
     setAnswers(collectedAnswers);
     setIsLoading(true);
     setError(null);
     setCurrentScreen('result');
 
-    try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: collectedAnswers }),
-      });
+    // AIが考えている風の演出（1.5秒〜2.5秒のランダムディレイ）
+    const delay = Math.floor(Math.random() * 1000) + 1500;
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'サーバーエラーが発生しました');
+    setTimeout(() => {
+      try {
+        const generatedProfiles = generateProfiles(collectedAnswers);
+        setProfiles(generatedProfiles);
+      } catch (err) {
+        console.error('Generation failed:', err);
+        setError('プロフィールの生成に失敗しました。もう一度お試しください。');
+      } finally {
+        setIsLoading(false);
       }
-
-      const data = await response.json();
-      setProfiles(data.profiles);
-    } catch (err) {
-      console.error('Generation failed:', err);
-      setError(err.message || 'プロフィールの生成に失敗しました。もう一度お試しください。');
-    } finally {
-      setIsLoading(false);
-    }
+    }, delay);
   };
 
   const restart = () => {

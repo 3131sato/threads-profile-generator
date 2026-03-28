@@ -1,132 +1,234 @@
 /**
- * Threads プロフィール生成ロジック
- * 5つの回答から3パターンのプロフィール文（150文字以内）を生成
+ * Threads プロフィール生成ロジック (V3: Client-side AI Simulation)
+ * 外部APIを使用せず、入力テキストを解析して高度なテンプレートと乱数で自然なプロフィールを生成する
  */
 
 const MAX_CHARS = 150;
 
 /**
- * テキストを短く切り詰めるユーティリティ
+ * ユーティリティ: 配列からランダムに1つ選ぶ
+ */
+function sample(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * ユーティリティ: テキストを指定文字数で丸める
  */
 function truncate(text, maxLen) {
-  if (text.length <= maxLen) return text;
+  if (!text || text.length <= maxLen) return text;
   return text.substring(0, maxLen - 1) + '…';
 }
 
 /**
- * 入力テキストから短い肩書き風フレーズを抽出
+ * テキスト解析: 文末の調整や不要な改行の削除
+ */
+function cleanText(text) {
+  if (!text) return '';
+  // 連続する改行を1つにし、先頭・末尾の空白を削除
+  return text.replace(/\n+/g, ' ').trim();
+}
+
+/**
+ * 解析: 「思い」「活動」からキャッチーな肩書きを抽出
+ * 長い文章が来ても冒頭だけ切り取るか、名詞っぽく終わらせる
  */
 function extractTitle(passion) {
-  // 最初の句読点・改行までを取得し、短い肩書きにする
-  const firstSentence = passion.split(/[。、！\n]/)[0].trim();
-  return truncate(firstSentence, 30);
+  const cleaned = cleanText(passion);
+  // 最初の句読点までを取得
+  let firstSentence = cleaned.split(/[。、！\n！?？]/)[0].trim();
+  
+  // 長すぎる場合は強制カット
+  firstSentence = truncate(firstSentence, 25);
+  
+  // 表現の揺らぎ（ランダムな装飾）
+  const prefixes = ['', '✨', '🔥', '🚀', '🌱'];
+  const suffixes = ['の専門家', 'を発信', 'をサポート', 'のプロ', ''];
+  
+  return `${sample(prefixes)} ${firstSentence}${sample(suffixes)}`.trim();
 }
 
 /**
- * CTAを「フォロワーのベネフィット」形式に変換
- */
-function formatCTA(cta) {
-  const cleaned = cta.trim();
-  // 既にベネフィット形式なら維持
-  if (cleaned.includes('届く') || cleaned.includes('わかる') || cleaned.includes('学べる') || cleaned.includes('できる') || cleaned.includes('もらえる')) {
-    return cleaned;
-  }
-  // 変換: フォローすると得られるメリットとして書き換え
-  return `フォローすると→${cleaned}`;
-}
-
-/**
- * 発信内容からキーワードを短く抽出
+ * 解析: 発信内容から短いキーワードを複数抽出
  */
 function extractKeywords(message) {
-  // 読点・スラッシュ・空白区切りの最初の2-3キーワードを取得
-  const keywords = message.split(/[、,\/\s]+/).filter(k => k.length > 0).slice(0, 3);
-  return keywords.join('｜');
+  const cleaned = cleanText(message);
+  // 読点や空白で分割し、意味ありげな2〜3の単語に絞る
+  const tokens = cleaned.split(/[、,\/\s。]+/).filter(k => k.length > 1 && k.length < 15);
+  
+  if (tokens.length === 0) return truncate(cleaned, 20);
+  
+  // 最大3つまで取得して「×」や「｜」で繋ぐ
+  const selected = tokens.slice(0, Math.min(3, tokens.length));
+  const separator = sample([' × ', ' ｜ ', '・']);
+  return selected.join(separator);
 }
 
 /**
- * パターンA: 実績重視型
- * 構成: 肩書き + 実績 + CTA
+ * 解析: CTAをベネフィットに変換（ランダムな訴求を追加）
  */
-function generatePatternA(answers) {
+function formatCTA(cta) {
+  const cleaned = cleanText(cta);
+  if (cleaned.includes('届く') || cleaned.includes('わかる') || cleaned.includes('学べる') || cleaned.includes('できる')) {
+    return cleaned;
+  }
+  
+  const formats = [
+    `フォローで【${truncate(cleaned, 20)}】がわかる`,
+    `👇 ${truncate(cleaned, 25)}`,
+    `🉐 フォローして${truncate(cleaned, 15)}を手に入れる`,
+    `💡 ${truncate(cleaned, 20)}を発信中！フォローしてね`
+  ];
+  return sample(formats);
+}
+
+/**
+ * 解析: 実績のフォーマット（数字を際立たせるなど）
+ */
+function formatAchievement(achievement) {
+  const cleaned = cleanText(achievement);
+  const isNumberRich = /\d/.test(cleaned);
+  
+  if (isNumberRich) {
+    const formats = [
+      `📈 実績：${truncate(cleaned, 30)}`,
+      `🏆 ${truncate(cleaned, 35)}`,
+      `実績👉 ${truncate(cleaned, 30)}`
+    ];
+    return sample(formats);
+  } else {
+    return `✨ ${truncate(cleaned, 35)}`;
+  }
+}
+
+/**
+ * 解析: クライアント実績のフォーマット
+ */
+function formatClientResult(clientResult) {
+  const cleaned = cleanText(clientResult);
+  const formats = [
+    `👥 クライアント：${truncate(cleaned, 30)}`,
+    `🤝 サポート実績：${truncate(cleaned, 30)}`,
+    `🌟 ${truncate(cleaned, 35)}`
+  ];
+  return sample(formats);
+}
+
+/**
+ * 最終組み立てと文字数調整（150文字厳守）
+ */
+function buildAndTrimProfile(parts) {
+  // 空の行を除外
+  let validParts = parts.filter(p => p && p.trim().length > 0);
+  let profile = validParts.join('\n');
+  
+  // 150文字を超えた場合の切り詰めロジック
+  // 下から順（CTA直前の要素）を削って調整する
+  while (profile.length > MAX_CHARS && validParts.length > 2) {
+    // 最後から2番目の要素（通常は実績関係）を削除・または短縮
+    const targetIndex = validParts.length - 2;
+    validParts[targetIndex] = truncate(validParts[targetIndex], validParts[targetIndex].length - 10);
+    
+    // 短くなりすぎたら要素ごと消す
+    if (validParts[targetIndex].length < 10) {
+      validParts.splice(targetIndex, 1);
+    }
+    profile = validParts.join('\n');
+  }
+  
+  // それでも超える場合は強制カット
+  return truncate(profile, MAX_CHARS);
+}
+
+
+/* ==========================================
+   パターン生成関数
+   ========================================== */
+
+/**
+ * パターン1: 実績アピール型
+ */
+function generatePattern1(answers) {
   const title = extractTitle(answers.passion);
-  const achievement = truncate(answers.achievement.trim(), 50);
+  const achievement = formatAchievement(answers.achievement);
+  const clientResult = formatClientResult(answers.clientResult);
   const cta = formatCTA(answers.cta);
-
-  const parts = [
-    title,
-    `📊 ${achievement}`,
-    `✨ ${cta}`,
+  
+  const templates = [
+    [title, achievement, clientResult, cta],
+    [title, `【実績】\n${achievement}\n${clientResult}`, cta],
+    [`🔥 ${title} 🔥`, achievement, clientResult, `\n👇 ${cta}`]
   ];
-
-  const profile = parts.join('\n');
-  return truncate(profile, MAX_CHARS);
+  
+  return buildAndTrimProfile(sample(templates));
 }
 
 /**
- * パターンB: 共感型
- * 構成: 思い + 発信内容 + CTA
+ * パターン2: 共感・ストーリー型
  */
-function generatePatternB(answers) {
-  const passion = truncate(answers.passion.trim(), 50);
-  const keywords = extractKeywords(answers.message);
+function generatePattern2(answers) {
+  const passionShort = truncate(cleanText(answers.passion), 40);
+  const messageKeywords = extractKeywords(answers.message);
   const cta = formatCTA(answers.cta);
-
-  const parts = [
-    `💭 ${passion}`,
-    `📝 発信テーマ：${keywords}`,
-    `🎁 ${cta}`,
+  
+  const formats = [
+    "「", "『", "【"
   ];
-
-  const profile = parts.join('\n');
-  return truncate(profile, MAX_CHARS);
+  const qStarts = sample(formats);
+  const qEnds = qStarts === "「" ? "」" : qStarts === "『" ? "』" : "】";
+  
+  const templates = [
+    [`💭 ${passionShort}`, `📝 発信テーマ：\n${messageKeywords}`, cta],
+    [`${qStarts}${passionShort}${qEnds}がモットーです🌱`, `日々の気づきや ${messageKeywords} について発信中。`, `\n🎁 ${cta}`],
+    [`こんにちは！\n${passionShort}を目指して活動中✨`, `主に ${messageKeywords} をお届けします。`, cta]
+  ];
+  
+  return buildAndTrimProfile(sample(templates));
 }
 
 /**
- * パターンC: バランス型
- * 構成: 肩書き + 発信内容 + クライアント実績 + CTA
+ * パターン3: バランス型
  */
-function generatePatternC(answers) {
+function generatePattern3(answers) {
   const title = extractTitle(answers.passion);
   const keywords = extractKeywords(answers.message);
-  const clientResult = truncate(answers.clientResult.trim(), 35);
+  const achievementOrClient = sample([
+    formatAchievement(answers.achievement), 
+    formatClientResult(answers.clientResult)
+  ]);
   const cta = formatCTA(answers.cta);
-
-  const parts = [
-    title,
-    `📝 ${keywords}を発信中`,
-    `🏆 ${clientResult}`,
-    `👇 ${cta}`,
+  
+  const templates = [
+    [`${title}｜${keywords}`, achievementOrClient, `\n${cta}`],
+    [`👤 ${title}`, `📌 発信：${keywords}`, achievementOrClient, cta],
+    [`\n${title}\n`, achievementOrClient, `📚 ${keywords}のヒント`, `👇${cta}`]
   ];
-
-  const profile = parts.join('\n');
-  return truncate(profile, MAX_CHARS);
+  
+  return buildAndTrimProfile(sample(templates));
 }
 
 /**
- * メインの生成関数
- * @param {Object} answers - { passion, message, achievement, clientResult, cta }
- * @returns {Array<{label: string, profile: string}>}
+ * エントリーポイント
  */
 export function generateProfiles(answers) {
   return [
     {
       label: '実績アピール型',
       emoji: '📊',
-      description: '実績を前面に出し、信頼感を強調したプロフィール',
-      profile: generatePatternA(answers),
+      description: '数字や実績を前面に出し、プロフィールを見た瞬間に信頼感を与える王道スタイル',
+      profile: generatePattern1(answers),
     },
     {
       label: '共感・ストーリー型',
       emoji: '💭',
-      description: 'あなたの想いや発信テーマで共感を呼ぶプロフィール',
-      profile: generatePatternB(answers),
+      description: 'あなたの想いや価値観を伝え、フォロワーとの距離を縮める親しみやすいスタイル',
+      profile: generatePattern2(answers),
     },
     {
       label: 'バランス型',
       emoji: '⚖️',
-      description: '実績・発信・CTAをバランスよくまとめたプロフィール',
-      profile: generatePatternC(answers),
+      description: '誰に何を届けるか（発信軸）と実績を端的にまとめた、一番使いやすいスタイル',
+      profile: generatePattern3(answers),
     },
   ];
 }
