@@ -150,14 +150,32 @@ function buildAndTrimProfile(parts) {
  */
 function generatePattern1(answers) {
   const title = extractTitle(answers.passion);
-  const achievement = formatAchievement(answers.achievement);
-  const clientResult = formatClientResult(answers.clientResult);
+  
+  // 実績とクライアント実績を少し整える
+  const achv = cleanText(answers.achievement);
+  const client = cleanText(answers.clientResult);
   const cta = formatCTA(answers.cta);
   
+  // 実績を文章に馴染ませるテンプレート
   const templates = [
-    [title, achievement, clientResult, cta],
-    [title, `【実績】\n${achievement}\n${clientResult}`, cta],
-    [`🔥 ${title} 🔥`, achievement, clientResult, `\n👇 ${cta}`]
+    [
+      title, 
+      `これまでに【${truncate(achv, 30)}】を達成しました✨`, 
+      `さらに${truncate(client, 35)}という成果も出ています。`, 
+      `\n${cta}`
+    ],
+    [
+      `🔥 ${title}`, 
+      `${truncate(achv, 30)}の実績をもとに発信中！`, 
+      `主な実績：${truncate(client, 35)}`, 
+      `\n👇 ${cta}`
+    ],
+    [
+      title, 
+      `個人として${truncate(achv, 25)}を達成し、`, 
+      `クライアントも${truncate(client, 30)}という結果に🙌`, 
+      `\n🎁 ${cta}`
+    ]
   ];
   
   return buildAndTrimProfile(sample(templates));
