@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function ResultScreen({ profiles, onRestart }) {
+function ResultScreen({ profiles, isLoading, error, onRestart, onRetry }) {
   const [copiedIndex, setCopiedIndex] = useState(null);
 
   const handleCopy = async (text, index) => {
@@ -9,7 +9,6 @@ function ResultScreen({ profiles, onRestart }) {
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
     } catch (err) {
-      // Fallback for older browsers
       const textarea = document.createElement('textarea');
       textarea.value = text;
       document.body.appendChild(textarea);
@@ -25,10 +24,63 @@ function ResultScreen({ profiles, onRestart }) {
     window.open('https://www.threads.net', '_blank');
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="screen result-screen">
+        <div className="card result-card">
+          <div className="loading-area">
+            <div className="loading-spinner">
+              <div className="spinner-ring"></div>
+              <div className="spinner-ring"></div>
+              <div className="spinner-ring"></div>
+            </div>
+            <h2 className="loading-title">AIがプロフィールを作成中…</h2>
+            <p className="loading-subtitle">あなたの回答を分析して、<br/>最適なプロフィールを3案生成しています</p>
+            <div className="loading-dots">
+              <span className="dot"></span>
+              <span className="dot"></span>
+              <span className="dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="screen result-screen">
+        <div className="card result-card">
+          <div className="error-area">
+            <div className="error-icon">⚠️</div>
+            <h2 className="error-title">生成に失敗しました</h2>
+            <p className="error-message">{error}</p>
+            <div className="error-actions">
+              <button className="btn btn-primary" onClick={onRetry} id="retry-button">
+                🔄 もう一度生成する
+              </button>
+              <button className="btn btn-outline" onClick={onRestart} id="restart-on-error-button">
+                最初からやり直す
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No profiles yet
+  if (!profiles || profiles.length === 0) {
+    return null;
+  }
+
   return (
     <div className="screen result-screen">
       <div className="card result-card">
         <div className="result-header-area">
+          <div className="ai-badge">✨ AI Generated</div>
           <h2 className="title">プロフィール完成 🎉</h2>
           <p className="subtitle">あなた専用のプロフィール3案ができました！<br/>お気に入りをコピーしてThreadsに設定しましょう。</p>
         </div>
